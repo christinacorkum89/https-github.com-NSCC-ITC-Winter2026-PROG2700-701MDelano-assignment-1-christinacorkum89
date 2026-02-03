@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cat Facts</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            font-family: Arial, sans-serif;
+        }
+        
+        body {
+            background-color: #f0f0f0;
+            padding: 20px;
+            max-width: 800px;
+            margin: 0 auto;
+        }
+        
+        h1 {
+            color: #333;
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        
+        button {
+            background-color: #4CAF50;
+            color: white;
+            padding: 12px 24px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+            display: block;
+            margin: 20px auto;
+        }
+        
+        button:hover {
+            background-color: #45a049;
+        }
+        
+        button:disabled {
+            background-color: #cccccc;
+            cursor: not-allowed;
+        }
+        
+        .container {
+            background-color: white;
+            border-radius: 8px;
+            padding: 20px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            margin-top: 20px;
+        }
+        
+        .fact-item {
+            border-left: 4px solid #4CAF50;
+            padding: 15px;
+            margin: 15px 0;
+            background-color: #f9f9f9;
+            border-radius: 0 4px 4px 0;
+        }
+        
+        .fact-text {
+            font-size: 18px;
+            color: #333;
+            margin-bottom: 10px;
+        }
+        
+        .fact-meta {
+            font-size: 14px;
+            color: #666;
+        }
+        
+        .error {
+            background-color: #ffebee;
+            color: #c62828;
+            padding: 15px;
+            border-radius: 4px;
+            border-left: 4px solid #c62828;
+            margin: 20px 0;
+        }
+        
+        .loading {
+            text-align: center;
+            color: #666;
+            padding: 20px;
+        }
+        
+        h2 {
+            color: #444;
+            border-bottom: 2px solid #4CAF50;
+            padding-bottom: 10px;
+        }
+        
+        .stats {
+            background-color: #e8f5e9;
+            padding: 10px;
+            border-radius: 4px;
+            margin-bottom: 20px;
+            display: flex;
+            justify-content: space-around;
+            flex-wrap: wrap;
+        }
+        
+        .stat-item {
+            text-align: center;
+            margin: 5px;
+        }
+        
+        .stat-value {
+            font-weight: bold;
+            font-size: 18px;
+            color: #2e7d32;
+        }
+        
+        .stat-label {
+            font-size: 12px;
+            color: #666;
+            text-transform: uppercase;
+        }
+    </style>
+</head>
+<body>
+    <h1>🐱 Random Cat Facts</h1>
+    
+    <div class="container">
+        <div class="stats" id="stats">
+            <div class="stat-item">
+                <div class="stat-value" id="fact-count">0</div>
+                <div class="stat-label">Facts Loaded</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-value" id="source-count">0</div>
+                <div class="stat-label">Sources</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-value" id="user-count">0</div>
+                <div class="stat-label">Users</div>
+            </div>
+        </div>
+        
+        <button id="load-facts">Get New Cat Facts</button>
+        
+        <div id="content">
+            <!-- Facts will be displayed here -->
+            <div class="loading" id="loading">
+                Click the button above to load cat facts!
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Wait for the page to load
+        document.addEventListener('DOMContentLoaded', function() {
+            const loadButton = document.getElementById('load-facts');
+            const contentDiv = document.getElementById('content');
+            const loadingDiv = document.getElementById('loading');
+            const factCountSpan = document.getElementById('fact-count');
+            const sourceCountSpan = document.getElementById('source-count');
+            const userCountSpan = document.getElementById('user-count');
+            
+            // Function to show loading state
+            function showLoading() {
+                loadingDiv.innerHTML = '<p>Loading cat facts... 🐾</p>';
+                loadButton.disabled = true;
+                loadButton.textContent = 'Loading...';
+            }
+            
+            // Function to hide loading state
+            function hideLoading() {
+                loadButton.disabled = false;
+                loadButton.textContent = 'Get New Cat Facts';
+            }
+            
+            // Function to show error
+            function showError(message) {
+                contentDiv.innerHTML = `
+                    <div class="error">
+                        <strong>Error:</strong> ${message}
+                    </div>
+                `;
+            }
+            
+            // Function to display cat facts
+            function displayFacts(facts) {
+                if (!facts || facts.length === 0) {
+                    contentDiv.innerHTML = '<p>No facts found. Try again!</p>';
+                    return;
+                }
+                
+                let html = '<h2>Cat Facts</h2>';
+                
+                // Track unique sources and users
+                const sources = new Set();
+                const users = new Set();
+                
+                // Display each fact
+                facts.forEach(fact => {
+                    // Extract data from different levels
+                    const factText = fact.text || fact.fact || 'No fact text';
+                    const factType = fact.type || 'unknown';
+                    const createdAt = fact.createdAt ? new Date(fact.createdAt).toLocaleDateString() : 'Unknown date';
+                    
+                    // Check if source exists (second level data)
+                    const source = fact.source || 'unknown';
+                    const userName = fact.user ? fact.user.name || 'anonymous' : 'anonymous';
+                    
+                    // Add to sets for counting
+                    sources.add(source);
+                    users.add(userName);
+                    
+                    // Create HTML for this fact
+                    html += `
+                        <div class="fact-item">
+                            <div class="fact-text">${factText}</div>
+                            <div class="fact-meta">
+                                Type: ${factType} | 
+                                Source: ${source} | 
+                                Added by: ${userName} | 
+                                Date: ${createdAt}
+                            </div>
+                        </div>
+                    `;
+                });
+                
+                // Update the content
+                contentDiv.innerHTML = html;
+                
+                // Update stats
+                factCountSpan.textContent = facts.length;
+                sourceCountSpan.textContent = sources.size;
+                userCountSpan.textContent = users.size;
+            }
+            
+            // Main function to fetch cat facts
+            async function fetchCatFacts() {
+                showLoading();
+                
+                try {
+                    // API endpoint - gets 5 random cat facts
+                    const response = await fetch('https://cat-fact.herokuapp.com/facts/random?amount=5');
+                    
+                    if (!response.ok) {
+                        throw new Error(`API error: ${response.status}`);
+                    }
+                    
+                    const facts = await response.json();
+                    
+                    // Handle both single fact and array response
+                    const factsArray = Array.isArray(facts) ? facts : [facts];
+                    
+                    // Display the facts
+                    displayFacts(factsArray);
+                    
+                } catch (error) {
+                    console.error('Error fetching cat facts:', error);
+                    showError(`Failed to load cat facts: ${error.message}. Please try again.`);
+                } finally {
+                    hideLoading();
+                }
+            }
+            
+            // Add click event to button
+            loadButton.addEventListener('click', fetchCatFacts);
+            
+            // Optional: Load facts when page loads
+            // fetchCatFacts();
+        });
+    </script>
+</body>
+</html>
