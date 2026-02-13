@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Multiplayer 5-Card Draw</title>
+    <style>
+        :root {
+            --felt-green: #35654d;
+            --wood-brown: #5d4037;
+            --gold: #f1c40f;
+            --card-w: 70px; /* Smaller cards to fit 4 players */
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: url('https://static.vecteezy.com/system/resources/previews/032/404/517/non_2x/green-background-with-card-playing-suits-gamble-velvet-texture-poker-table-decoration-with-gambling-and-bets-vector.jpg') no-repeat center center fixed;
+            background-size: cover;
+            color: white;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            overflow: hidden; /* Prevent scrolling during play */
+        }
+
+        /* --- Start Screen --- */
+        #setup-screen {
+            position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0,0,0,0.9); z-index: 2000;
+            display: flex; flex-direction: column; justify-content: center; align-items: center;
+        }
+        .setup-box {
+            background: #2c3e50; padding: 40px; border-radius: 20px; text-align: center;
+            border: 2px solid var(--gold); box-shadow: 0 0 50px rgba(241, 196, 15, 0.2);
+        }
+        .setup-btn {
+            display: block; width: 200px; padding: 15px; margin: 10px auto;
+            font-size: 1.2rem; cursor: pointer; border: none; border-radius: 10px;
+            background: var(--gold); color: #2c3e50; font-weight: bold;
+            transition: transform 0.2s;
+        }
+        .setup-btn:hover { transform: scale(1.05); }
+
+        /* --- Game Header --- */
+        .game-header {
+            position: absolute; top: 10px; left: 50%; transform: translateX(-50%);
+            background: rgba(0,0,0,0.8); padding: 10px 30px; border-radius: 30px;
+            border: 1px solid var(--gold); display: flex; gap: 30px; z-index: 100;
+        }
+        .stat-val { color: var(--gold); font-weight: bold; font-size: 1.2rem; }
+
+        /* --- Poker Table Area --- */
+        .poker-table {
+            position: relative;
+            width: 95vw; height: 80vh;
+            margin-top: 60px;
+            background: rgba(53, 101, 77, 0.95);
+            border: 20px solid var(--wood-brown);
+            border-radius: 200px;
+            box-shadow: inset 0 0 100px rgba(0,0,0,0.8);
+        }
+
+        /* --- Player Positions --- */
+        .player-seat {
+            position: absolute;
+            display: flex; flex-direction: column; align-items: center;
+            width: 300px; height: 180px;
+            transition: all 0.3s;
+        }
+        
+        .active-turn { box-shadow: 0 0 20px var(--gold); background: rgba(241, 196, 15, 0.1); border-radius: 20px; }
+        .folded { opacity: 0.5; filter: grayscale(1); }
+
+        /* Positions */
+        #seat-0 { bottom: 20px; left: 50%; transform: translateX(-50%); } /* User */
+        #seat-1 { top: 40%; left: -50px; transform: rotate(90deg); } /* Left */
+        #seat-2 { top: 20px; left: 50%; transform: translateX(-50%); } /* Top */
+        #seat-3 { top: 40%; right: -50px; transform: rotate(-90deg); } /* Right */
+
+        /* Player Info */
+        .player-info {
+            background: rgba(0,0,0,0.6); padding: 5px 15px; border-radius: 15px;
+            margin-bottom: 5px; text-align: center;
+        }
+        .p-name { font-weight: bold; color: #fff; }
+        .p-balance { color: var(--gold); font-size: 0.9rem; }
+        .p-status { font-size: 0.8rem; color: #aaa; height: 1.2em; }
+
+        /* Cards */
+        .hand-container {
+            display: flex; gap: 5px; justify-content: center;
+            height: 100px;
+        }
+        .card-img {
+            width: var(--card-w); height: auto; border-radius: 5px;
+            box-shadow: 2px 2px 5px rgba(0,0,0,0.5);
+            transition: transform 0.2s;
+        }
+        .user-card:hover { transform: translateY(-15px); cursor: pointer; }
+        .discard-selected { transform: translateY(-20px); opacity: 0.6; border: 2px solid red; }
+
+        /* --- Chip Visuals --- */
+        
+        /* Center Pot */
+        .pot-center {
+            position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+            display: flex; flex-direction: column; align-items: center;
+        }
+        .pot-label { font-size: 1.5rem; color: var(--gold); text-shadow: 0 2px 4px #000; margin-bottom: 10px; }
+        .pot-chips { display: flex; gap: 5px; align-items: flex-end; height: 60px; }
+
+        /* Player Bets (Visual stacks in front of players) */
+        .bet-spot {
+            position: absolute;
+            width: 80px; height: 60px;
+            display: flex; justify-content: center; align-items: flex-end;
+            pointer-events: none;
+        }
+        /* Relative to seat */
+        #bet-0 { bottom: 20px; left: -100px; transform: none; } 
+        #bet-1 { right: -90px; top: 50%; transform: translateY(-50%) rotate(-90deg); }
+        #bet-2 { top: 150px; left: 50%; transform: translateX(-50%); }
+        #bet-3 { left: -90px; top: 50%; transform: translateY(-50%) rotate(90deg); }
+
+        /* Chip CSS */
+        .chip-col { display: flex; flex-direction: column-reverse; margin-right: -25px; } /* Overlap cols */
+        .chip {
+            width: 40px; height: 10px; border-radius: 50%;
+            border: 1px dashed rgba(255,255,255,0.5);
+            box-shadow: 0 2px 2px rgba(0,0,0,0.5);
+            margin-top: -7px;
+        }
+        .c-red { background: #e74c3c; border: 1px solid #922b21; } /* 5 */
+        .c-blue { background: #3498db; border: 1px solid #1f618d; } /* 10 */
+        .c-green { background: #2ecc71; border: 1px solid #1e8449; } /* 25 */
+        .c-black { background: #34495e; border: 1px solid #000; } /* 100 */
+        .c-purple { background: #9b59b6; border: 1px solid #6c3483; } /* 500 */
+
+        /* --- Controls --- */
+        .action-bar {
+            position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%);
+            display: flex; gap: 10px; background: rgba(0,0,0,0.8); padding: 15px;
+            border-radius: 15px; z-index: 100;
+        }
+        .btn {
+            padding: 10px 20px; font-weight: bold; border: none; border-radius: 5px; cursor: pointer;
+            min-width: 90px;
+        }
+        .btn-check { background: #27ae60; color: white; }
+        .btn-call { background: #2980b9; color: white; }
+        .btn-fold { background: #c0392b; color: white; }
+        .btn-bet { background: var(--gold); color: #2c3e50; }
+        .btn:disabled { opacity: 0.5; filter: grayscale(1); cursor: not-allowed; }
+
+        @media (max-width: 800px) {
+            :root { --card-w: 40px; }
+            .poker-table { width: 100vw; border-width: 5px; border-radius: 0; }
+            .player-seat { width: 200px; height: 140px; }
+            #seat-1 { left: -80px; } #seat-3 { right: -80px; }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Setup Screen -->
+    <div id="setup-screen">
+        <div class="setup-box">
+            <h1>Poker Night</h1>
+            <p>Enter your name:</p>
+            <input type="text" id="user-name-input" placeholder="Player Name" style="padding: 10px; font-size: 1.2rem; border-radius: 5px; border: none; margin-bottom: 20px; text-align: center;">
+            <p>Select number of opponents:</p>
+            <button class="setup-btn" onclick="startGame(1)">1 CPU (Heads Up)</button>
+            <button class="setup-btn" onclick="startGame(2)">2 CPUs</button>
+            <button class="setup-btn" onclick="startGame(3)">3 CPUs (Full Table)</button>
+        </div>
+    </div>
+
+    <!-- Game Over Overlay -->
+    <div id="game-over-overlay" style="display:none; position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,0.85); z-index:3000; flex-direction:column; justify-content:center; align-items:center;">
+        <div style="background:#2c3e50; padding:40px; border-radius:20px; text-align:center; border:2px solid var(--gold); box-shadow:0 0 50px rgba(241,196,15,0.4);">
+            <h1 id="winner-title" style="color:var(--gold); font-size:3rem; margin:0 0 20px 0; text-transform:uppercase;">WINNER!</h1>
+            <p id="winner-desc" style="font-size:1.5rem; margin-bottom:30px;">Player wins with Hand</p>
+            <button class="setup-btn" onclick="closeGameOver()">NEXT HAND</button>
+        </div>
+    </div>
+
+    <div class="game-header">
+        <div>Pot: <span class="stat-val">$<span id="main-pot">0</span></span></div>
+    </div>
+
+    <div class="poker-table">
+        <!-- Center Pot Area -->
+        <div class="pot-center">
+            <div class="pot-label">POT</div>
+            <div class="pot-chips" id="pot-chips-container"></div>
+        </div>
+
+        <!-- Seats -->
+        <!-- User (Seat 0) -->
+        <div class="player-seat" id="seat-0">
+            <div class="bet-spot" id="bet-0"></div>
+            <div class="hand-container" id="hand-0"></div>
+            <div class="player-info">
+                <div class="p-name">YOU</div>
+                <div class="p-balance">$1000</div>
+                <div class="p-status" id="status-0"></div>
+            </div>
+        </div>
+
+        <!-- CPU 1 (Seat 1 - Left) -->
+        <div class="player-seat" id="seat-1" style="display:none;">
+            <div class="bet-spot" id="bet-1"></div>
+            <div class="hand-container" id="hand-1"></div>
+            <div class="player-info">
+                <div class="p-name">CPU 1</div>
+                <div class="p-balance">$1000</div>
+                <div class="p-status" id="status-1"></div>
+            </div>
+        </div>
+
+        <!-- CPU 2 (Seat 2 - Top) -->
+        <div class="player-seat" id="seat-2" style="display:none;">
+            <div class="bet-spot" id="bet-2"></div>
+            <div class="hand-container" id="hand-2"></div>
+            <div class="player-info">
+                <div class="p-name">CPU 2</div>
+                <div class="p-balance">$1000</div>
+                <div class="p-status" id="status-2"></div>
+            </div>
+        </div>
+
+        <!-- CPU 3 (Seat 3 - Right) -->
+        <div class="player-seat" id="seat-3" style="display:none;">
+            <div class="bet-spot" id="bet-3"></div>
+            <div class="hand-container" id="hand-3"></div>
+            <div class="player-info">
+                <div class="p-name">CPU 3</div>
+                <div class="p-balance">$1000</div>
+                <div class="p-status" id="status-3"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Controls -->
+    <div class="action-bar" id="controls" style="display:none;">
+        <!-- Dynamic buttons injected by JS -->
+    </div>
+
+    <script src="./main.js"></script>
+
+</body>
+</html>
